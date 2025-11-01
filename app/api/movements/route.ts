@@ -1,64 +1,67 @@
-import { NextResponse } from "next/server"
-import {
-  collection,
-  getDocs,
-  addDoc,
-  deleteDoc,
-  doc,
-  query,
-  where,
-  updateDoc,
-} from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebaseAdmin";
 
 // GET — lista movimentos
 export async function GET() {
-  const snapshot = await getDocs(collection(db, "movements"))
-  const movements = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
-  return NextResponse.json(movements)
+  try {
+    const snapshot = await adminDb.collection("movements").get();
+    const movements = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return NextResponse.json(movements);
+  } catch (err) {
+    console.error("Erro ao buscar movimentos:", err);
+    return NextResponse.json({ ok: false, error: "Erro ao buscar movimentos" }, { status: 500 });
+  }
 }
 
 // POST — cria movimento e atualiza estoque
 export async function POST(request: Request) {
-  const newMovement = await request.json()
-  const movementToAdd = { ...newMovement, createdAt: new Date().toISOString() }
+  try {
+    const newMovement = await request.json();
+    const movementToAdd = { ...newMovement, createdAt: new Date().toISOString() };
 
-  // 1️⃣ Salva o movimento
-  const docRef = await addDoc(collection(db, "movements"), movementToAdd)
+    // 1️⃣ Salva o movimento
+    const docRef = await adminDb.collection("movements").add(movementToAdd);
 
-  // 2️⃣ Atualiza o estoque do produto
-  if (newMovement.productId) {
-    // 🔹 Faz uma query pelo campo 'id' interno do documento
-    const q = query(
-      collection(db, "products"),
-      where("id", "==", newMovement.productId)
-    )
+    // 2️⃣ Atualiza o estoque do produto
+    if (newMovement.productId) {
+      const productsRef = adminDb.collection("products");
+      const querySnapshot = await productsRef
+        .where("id", "==", newMovement.productId)
+        .get();
 
-    const querySnapshot = await getDocs(q)
+      if (!querySnapshot.empty) {
+        const productDoc = querySnapshot.docs[0];
+        const productData = productDoc.data();
+        const currentStock = productData.currentStock || 0;
 
-    if (!querySnapshot.empty) {
-      // Pega o primeiro documento encontrado
-      const productDoc = querySnapshot.docs[0]
-      const currentStock = productDoc.data().currentStock || 0
+        const newStock =
+          newMovement.type === "entrada"
+            ? currentStock + Number(newMovement.quantity)
+            : currentStock - Number(newMovement.quantity);
 
-      const newStock =
-        newMovement.type === "entrada"
-          ? currentStock + Number(newMovement.quantity)
-          : currentStock - Number(newMovement.quantity)
-
-      // Atualiza o estoque
-      await updateDoc(productDoc.ref, { currentStock: Math.max(0, newStock) })
-    } else {
-      console.log("Produto não encontrado com o ID:", newMovement.productId)
+        await productDoc.ref.update({ currentStock: Math.max(0, newStock) });
+      } else {
+        console.log("Produto não encontrado com o ID:", newMovement.productId);
+      }
     }
-  }
 
-  return NextResponse.json({ id: docRef.id, ...movementToAdd })
+    return NextResponse.json({ id: docRef.id, ...movementToAdd });
+  } catch (err) {
+    console.error("Erro ao criar movimento:", err);
+    return NextResponse.json({ ok: false, error: "Erro ao criar movimento" }, { status: 500 });
+  }
 }
 
 // DELETE — remove movimento
 export async function DELETE(request: Request) {
-  const { id } = await request.json()
-  await deleteDoc(doc(db, "movements", id))
-  return NextResponse.json({ ok: true })
+  try {
+    const { id } = await request.json();
+    if (!id) return NextResponse.json({ ok: false, error: "ID é obrigatório" }, { status: 400 });
+
+    await adminDb.collection("movements").doc(id).delete();
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Erro ao deletar movimento:", err);
+    return NextResponse.json({ ok: false, error: "Erro ao deletar movimento" }, { status: 500 });
+  }
 }
