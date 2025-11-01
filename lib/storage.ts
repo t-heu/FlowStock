@@ -25,14 +25,6 @@ export interface StockMovement {
   createdAt: string
 }
 
-export const updateProduct = async (id: string, updates: Partial<Product>) => {
-  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/products`, {
-    method: "PUT", // precisa implementar PUT no backend
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, updates }),
-  });
-};
-
 export const saveBranch = async (branch: Omit<Branch, "id">): Promise<Branch> => {
   const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/branches`, {
     method: "POST",
@@ -55,37 +47,17 @@ export const saveMovement = async (movement: Omit<StockMovement, "id" | "created
     ...movement,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
-  };
+  }
 
-  // Salva a movimentação via API
-  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/movements`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/movements`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(newMovement),
-  });
+  })
 
-  // Atualiza estoque do produto
-  const product = await getProducts().then(products => products.find(p => p.id === movement.productId));
-  if (product) {
-    const newStock = movement.type === "entrada" 
-      ? product.currentStock + movement.quantity
-      : product.currentStock - movement.quantity;
-    
-    await updateProduct(product.id, { currentStock: newStock });
-  }
-
-  return newMovement;
-};
-
-export const getMovementsByBranch = async (branchId: string): Promise<StockMovement[]> => {
-  const movements = await getMovements();
-  return movements.filter(m => m.branchId === branchId);
-};
-
-export const getMovementsByProduct = async (productId: string): Promise<StockMovement[]> => {
-  const movements = await getMovements();
-  return movements.filter(m => m.productId === productId);
-};
+  const savedMovement = await res.json()
+  return savedMovement
+}
 
 // --------------------
 // branch
@@ -117,62 +89,52 @@ export async function deleteProduct(id: string) {
     body: JSON.stringify({ id }),
   });
 }
-/*
-export const updateProduct = (id: string, updates: Partial<Product>): void => {
-  const products = getProducts()
-  const index = products.findIndex((p) => p.id === id)
-  if (index !== -1) {
-    products[index] = { ...products[index], ...updates }
-    localStorage.setItem("products", JSON.stringify(products))
-  }
+
+// Tipagem do usuário
+export interface User {
+  id: string
+  email: string
+  name: string
+  role: "admin" | "user"
+  password?: string
+  branchId: string
+  createdAt: string
 }
 
-export const saveBranch = (branch: Omit<Branch, "id">): Branch => {
-  const branches = getBranches()
-  const newBranch: Branch = {
-    ...branch,
-    id: crypto.randomUUID(),
-  }
-  branches.push(newBranch)
-  localStorage.setItem("branches", JSON.stringify(branches))
-  return newBranch
+// 🔹 GET — lista todos os usuários
+export const getUsers = async (): Promise<User[]> => {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/users`)
+  const data = await res.json()
+  return data
 }
 
-// Funções para gerenciar movimentações
-export const getMovements = (): StockMovement[] => {
-  if (typeof window === "undefined") return []
-  const data = localStorage.getItem("movements")
-  return data ? JSON.parse(data) : []
+// 🔹 POST — cria novo usuário
+export const saveUser = async (user: Omit<User, "id" | "createdAt">): Promise<User> => {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(user)
+  })
+  const data = await res.json()
+  return data
 }
 
-export const saveMovement = (movement: Omit<StockMovement, "id">): StockMovement => {
-  const movements = getMovements()
-  const newMovement: StockMovement = {
-    ...movement,
-    id: crypto.randomUUID(),
-  }
-  movements.push(newMovement)
-  localStorage.setItem("movements", JSON.stringify(movements))
-
-  // Atualizar estoque do produto
-  const products = getProducts()
-  const product = products.find((p) => p.id === movement.productId)
-  if (product) {
-    if (movement.type === "entrada") {
-      product.currentStock += movement.quantity
-    } else {
-      product.currentStock -= movement.quantity
-    }
-    updateProduct(product.id, { currentStock: product.currentStock })
-  }
-
-  return newMovement
+// 🔹 PUT — atualiza usuário
+export const updateUser = async (id: string, updates: Partial<User>): Promise<User> => {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/users`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, updates })
+  })
+  const data = await res.json()
+  return data
 }
 
-export const getMovementsByBranch = (branchId: string): StockMovement[] => {
-  return getMovements().filter((m) => m.branchId === branchId)
+// 🔹 DELETE — remove usuário
+export const deleteUser = async (id: string): Promise<void> => {
+  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/users`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id })
+  })
 }
-
-export const getMovementsByProduct = (productId: string): StockMovement[] => {
-  return getMovements().filter((m) => m.productId === productId)
-}*/

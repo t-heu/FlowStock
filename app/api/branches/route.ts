@@ -1,28 +1,31 @@
-import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import { NextResponse } from "next/server"
+import { collection, getDocs, addDoc, deleteDoc, doc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
-const filePath = path.join(process.cwd(), "data.json");
-
+// 🔹 GET — lista todas as filiais (branches)
 export async function GET() {
-  const fileData  = fs.readFileSync(filePath, "utf8");
-  const data = JSON.parse(fileData);
-
-  return NextResponse.json(data.branches);
+  const snapshot = await getDocs(collection(db, "branches"))
+  const branches = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
+  return NextResponse.json(branches)
 }
 
+// 🔹 POST — adiciona uma nova filial
 export async function POST(request: Request) {
-  const newProduct = await request.json();
-  const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
-  data.push(newProduct);
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-  return NextResponse.json({ ok: true });
+  const newBranch = await request.json()
+
+  const branchToAdd = {
+    ...newBranch,
+    createdAt: new Date().toISOString(),
+  }
+
+  const docRef = await addDoc(collection(db, "branches"), branchToAdd)
+
+  return NextResponse.json({ id: docRef.id, ...branchToAdd })
 }
 
+// 🔹 DELETE — remove uma filial pelo id
 export async function DELETE(request: Request) {
-  const { id } = await request.json();
-  let data = JSON.parse(fs.readFileSync(filePath, "utf8"));
-  data = data.filter((p: any) => p.id !== id);
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-  return NextResponse.json({ ok: true });
+  const { id } = await request.json()
+  await deleteDoc(doc(db, "branches", id))
+  return NextResponse.json({ ok: true })
 }

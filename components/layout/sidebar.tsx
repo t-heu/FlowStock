@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { logout, getCurrentUser } from "@/lib/auth"
-import { LayoutDashboard, Package, BarChart3, LogOut, TrendingUp, TrendingDown } from "lucide-react"
+import { LayoutDashboard, Package, BarChart3, LogOut, TrendingUp, TrendingDown, Users } from "lucide-react"
 import { useState, useEffect } from "react"
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { title: "Entrada de Estoque", href: "/entrada", icon: TrendingUp },
   { title: "Saída de Estoque", href: "/saida", icon: TrendingDown },
   { title: "Relatórios", href: "/relatorios", icon: BarChart3 },
+  { title: "Filiais", href: "/branches", icon: BarChart3 },
 ]
 
 export function Sidebar() {
@@ -58,6 +59,21 @@ export function Sidebar() {
             </Link>
           )
         })}
+
+         {/* 👇 Apenas administradores veem esta opção */}
+        {user?.username === "admin" && (
+          <Link
+            href="/users"
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
+              pathname === "/usuarios"
+                ? "bg-black text-white"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700"
+            }`}
+          >
+            <Users className="w-5 h-5" />
+            Usuários
+          </Link>
+        )}
       </nav>
 
       {/* User Section */}
