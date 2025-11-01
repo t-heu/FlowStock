@@ -1,0 +1,241 @@
+"use client"
+
+import type React from "react"
+import { useEffect, useState } from "react"
+import { getProducts, getBranches, saveMovement, getMovements, type Product, type Branch } from "@/lib/storage"
+import { Package, AlertCircle, TrendingDown } from "lucide-react"
+
+export default function SaidaPage() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [recentExits, setRecentExits] = useState<any[]>([])
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [formData, setFormData] = useState({
+    productId: "",
+    branchId: "",
+    quantity: "",
+    notes: "",
+  })
+
+  useEffect(() => {
+    async function loadData() {
+      setProducts(await getProducts())
+      setBranches(await getBranches())
+      loadRecentExits()
+    }
+
+    loadData()
+  }, [])
+
+  const loadRecentExits = async () => {
+    const movements = await getMovements();
+
+    movements.filter((m) => m.type === "saida")
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 10)
+
+    const productsData = await getProducts()
+    const branchesData = await getBranches()
+
+    const exitsWithDetails = movements.map((m) => ({
+      ...m,
+      product: productsData.find((p) => p.id === m.productId),
+      branch: branchesData.find((b) => b.id === m.branchId),
+    }))
+
+    setRecentExits(exitsWithDetails)
+  }
+
+  const handleProductChange = (productId: string) => {
+    setFormData({ ...formData, productId })
+    const product = products.find((p) => p.id === productId)
+    setSelectedProduct(product || null)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const quantity = Number.parseInt(formData.quantity)
+    if (quantity <= 0) {
+      alert("A quantidade deve ser maior que zero")
+      return
+    }
+
+    if (!selectedProduct) {
+      alert("Selecione um produto")
+      return
+    }
+
+    if (quantity > selectedProduct.currentStock) {
+      alert(`Estoque insuficiente! Disponível: ${selectedProduct.currentStock}`)
+      return
+    }
+
+    saveMovement({
+      productId: formData.productId,
+      branchId: formData.branchId,
+      type: "saida",
+      quantity,
+      date: new Date().toISOString(),
+      notes: formData.notes,
+    })
+
+    setFormData({ productId: "", branchId: "", quantity: "", notes: "" })
+    setSelectedProduct(null)
+    setProducts(await getProducts())
+    loadRecentExits()
+    alert("Saída registrada com sucesso!")
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Saída de Estoque</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">Registre a saída de produtos do estoque</p>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <TrendingDown className="w-6 h-6 text-red-600 dark:text-red-400" />
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Lançar Saída</h2>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Produto</label>
+              <select
+                value={formData.productId}
+                onChange={(e) => handleProductChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                required
+              >
+                <option value="">Selecione um produto</option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.code} - {product.name} (Estoque: {product.currentStock})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filial</label>
+              <select
+                value={formData.branchId}
+                onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                required
+              >
+                <option value="">Selecione uma filial</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.code} - {branch.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {selectedProduct && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-black dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">Estoque Disponível</p>
+                  <p className="text-2xl font-bold text-black dark:text-blue-400 mt-1">
+                    {selectedProduct.currentStock} {selectedProduct.unit}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quantidade</label>
+            <input
+              type="number"
+              value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+              placeholder="Digite a quantidade"
+              min="1"
+              max={selectedProduct?.currentStock || undefined}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observações</label>
+            <input
+              type="text"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Notas sobre a saída (opcional)"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={!selectedProduct}
+            className="px-6 py-2.5 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+          >
+            <TrendingDown className="w-4 h-4" />
+            Registrar Saída
+          </button>
+        </form>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Últimas Saídas</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-slate-700 border-b border-gray-200 dark:border-slate-600">
+              <tr>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Data</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Produto</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Filial</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Qtd</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Observações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentExits.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8">
+                    <div className="flex flex-col items-center justify-center text-center gap-2 text-gray-500 dark:text-gray-400">
+                      <Package className="w-6 h-6 opacity-70" />
+                      <p>Nenhuma saída registrada</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                recentExits.map((exit) => (
+                  <tr
+                    key={exit.id}
+                    className="border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700/50"
+                  >
+                    <td className="p-4 text-sm text-gray-900 dark:text-white">
+                      {new Date(exit.date).toLocaleDateString("pt-BR")}
+                    </td>
+                    <td className="p-4 text-sm text-gray-900 dark:text-white">
+                      {exit.product?.code} - {exit.product?.name}
+                    </td>
+                    <td className="p-4 text-sm text-gray-900 dark:text-white">{exit.branch?.name}</td>
+                    <td className="p-4 text-sm">
+                      <span className="font-semibold text-red-600 dark:text-red-400">-{exit.quantity}</span>
+                    </td>
+                    <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{exit.notes || "-"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
