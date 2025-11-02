@@ -5,37 +5,28 @@ export interface User {
   role: string
 }
 
-export const login = async (username: string, password: string) => {
+export const login = async (username: string, password: string): Promise<User | null> => {
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  })
+
+  const data = await res.json()
+  return data.ok ? data.user : null
+}
+
+export const logout = async () => {
+  await fetch("/api/auth/logout", { method: "POST" }) // opcional criar rota pra limpar cookie
+  location.href = "/login"
+}
+
+export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-
-    const data = await res.json();
-    if (data.ok && data.user) {
-      localStorage.setItem("currentUser", JSON.stringify(data.user));
-      return data.user;
-    }
-
-    return null;
-  } catch (err) {
-    console.error("Erro no login frontend:", err);
-    return null;
+    const res = await fetch("/api/auth/profile", { method: "GET" })
+    const data = await res.json()
+    return data.ok ? data.user : null
+  } catch {
+    return null
   }
-};
-
-export const logout = (): void => {
-  localStorage.removeItem("currentUser")
-}
-
-export const getCurrentUser = (): User | null => {
-  if (typeof window === "undefined") return null
-  const data = localStorage.getItem("currentUser")
-  return data ? JSON.parse(data) : null
-}
-
-export const isAuthenticated = (): boolean => {
-  return getCurrentUser() !== null
 }

@@ -2,10 +2,17 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { isAuthenticated, getCurrentUser } from "@/lib/auth" // getUser retorna info do usuário logado
+import { getCurrentUser } from "@/lib/auth"
+
+export interface User {
+  id: string
+  username: string
+  name: string
+  role: string
+}
 
 interface AuthContextType {
-  user: any | null
+  user: User | null
   loading: boolean
 }
 
@@ -15,23 +22,23 @@ const AuthContext = createContext<AuthContextType>({
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
-    const authUser = isAuthenticated() ? getCurrentUser() : null
-    setUser(authUser)
-    setLoading(false)
+    const fetchUser = async () => {
+      const current = await getCurrentUser()
+      setUser(current)
+      setLoading(false)
 
-    // redirecionamento
-    if (!authUser && pathname !== "/login") {
-      router.push("/login")
-    } else if (authUser && pathname === "/login") {
-      router.push("/")
+      if (!current && pathname !== "/login") router.push("/login")
+      else if (current && pathname === "/login") router.push("/")
     }
-  }, [pathname, router])
+
+    fetchUser()
+  }, [pathname])
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
@@ -40,7 +47,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Hook para usar o contexto
 export function useAuth() {
   return useContext(AuthContext)
 }

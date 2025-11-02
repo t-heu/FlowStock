@@ -33,8 +33,11 @@ export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
-    const u = getCurrentUser()
-    setUser(u)
+    async function load() {
+      const u = await getCurrentUser()
+      setUser(u)
+    }
+    load()
   }, [])
 
   const handleLogout = () => {
