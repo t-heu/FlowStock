@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getProducts, getBranches, getMovements, type Product, type Branch } from "@/lib/storage"
+import { getBranches, type Branch } from "@/lib/branches"
+import { type Product } from "@/lib/product"
+import { fetchReport } from "@/lib/reports"
 import { Download, Filter } from "lucide-react"
 
 interface ReportData {
@@ -30,49 +32,8 @@ export default function RelatoriosPage() {
   }, [])
 
   const generateReport = async () => {
-    const products = await getProducts()
-    const branchesData = await getBranches()
-    let movements = await getMovements();
-    movements.filter((m) => m.type === "saida")
-
-    // Filtrar por data
-    if (startDate) {
-      movements = movements.filter((m) => new Date(m.date) >= new Date(startDate))
-    }
-    if (endDate) {
-      movements = movements.filter((m) => new Date(m.date) <= new Date(endDate))
-    }
-
-    // Filtrar por filial
-    if (selectedBranch !== "all") {
-      movements = movements.filter((m) => m.branchId === selectedBranch)
-    }
-
-    const branchesToProcess =
-      selectedBranch === "all" ? branchesData : branchesData.filter((b) => b.id === selectedBranch)
-
-    const report: ReportData[] = branchesToProcess.map((branch) => {
-      const branchMovements = movements.filter((m) => m.branchId === branch.id)
-
-      const productExits = products
-        .map((product) => {
-          const productMovements = branchMovements.filter((m) => m.productId === product.id)
-          const totalExits = productMovements.reduce((sum, m) => sum + m.quantity, 0)
-          return { product, totalExits }
-        })
-        .filter((item) => item.totalExits > 0)
-        .sort((a, b) => b.totalExits - a.totalExits)
-
-      const totalExits = productExits.reduce((sum, item) => sum + item.totalExits, 0)
-
-      return {
-        branch,
-        products: productExits,
-        totalExits,
-      }
-    })
-
-    setReportData(report.filter((r) => r.totalExits > 0))
+    const report = await fetchReport(selectedBranch, startDate, endDate);
+    setReportData(report);
   }
 
   const handleFilter = () => {
@@ -80,11 +41,11 @@ export default function RelatoriosPage() {
   }
 
   const handleExport = () => {
-    let csv = "Filial,Código Produto,Nome Produto,Quantidade Saída\n"
+    let csv = "Filial;Código Produto;Nome Produto;Quantidade Saída\n"
 
     reportData.forEach((branchData) => {
       branchData.products.forEach((item) => {
-        csv += `${branchData.branch.name},${item.product.code},${item.product.name},${item.totalExits}\n`
+        csv += `${branchData.branch.name};${item.product.code};${item.product.name};${item.totalExits}\n`
       })
     })
 

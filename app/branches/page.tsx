@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getBranches, saveBranch } from "@/lib/storage"
+import { getBranches, saveBranch } from "@/lib/branches"
 import { Building2, PlusCircle } from "lucide-react"
 
 interface Branch {

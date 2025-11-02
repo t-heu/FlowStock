@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getBranches } from "@/lib/storage"
-import { getUsers, saveUser, deleteUser } from "@/lib/storage"
+import { saveUser, deleteUser, getUsers } from "@/lib/user"
+import { getBranches } from "@/lib/branches"
 import { UserPlus } from "lucide-react"
 
 interface Branch {
@@ -15,6 +15,9 @@ interface User {
   name: string
   email: string
   branchId: string
+  branch?: {
+    name: string
+  }
   role: "admin" | "user"
 }
 
@@ -25,24 +28,48 @@ export default function UsersPage() {
 
   // 🔹 Carrega filiais e usuários
   useEffect(() => {
-    getBranches().then(setBranches)
-    getUsers().then(setUsers)
+    const load = async () => {
+      try {
+        const [branchesData, usersData] = await Promise.all([getBranches(), getUsers()]);
+        setBranches(branchesData);
+        setUsers(usersData);
+      } catch (err) {
+        console.error("Erro ao carregar usuários ou filiais:", err);
+        alert("Falha ao carregar dados. Tente novamente mais tarde.");
+      }
+    }
+    load()
   }, [])
 
   // 🔹 Cria novo usuário
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.name || !formData.email || !formData.branchId) return
+    e.preventDefault();
 
-    const newUser = await saveUser(formData)
-    setUsers([...users, newUser])
-    setFormData({ name: "", email: "", branchId: "", role: "user", password: '' })
-  }
+    if (!formData.name || !formData.email || !formData.branchId) {
+      alert("Preencha todos os campos obrigatórios");
+      return;
+    }
+
+    try {
+      const newUser = await saveUser(formData);
+
+      // Reseta formulário
+      setFormData({ name: "", email: "", branchId: "", role: "user", password: "" });
+
+      alert("Usuário criado com sucesso!");
+    } catch (err: any) {
+      alert(err.message || "Erro ao criar usuário");
+    }
+  };
 
   // 🔹 Remove usuário
   const handleDelete = async (id: string) => {
-    await deleteUser(id)
-    setUsers(users.filter(u => u.id !== id))
+    try {
+      await deleteUser(id)
+      setUsers(users.filter(u => u.id !== id))
+    } catch(e) {
+      console.error("Falha ao salvar o movimento:", e)
+    }
   }
 
   return (
@@ -148,7 +175,7 @@ export default function UsersPage() {
                   <td className="p-4 text-sm text-gray-900 dark:text-white">{u.name}</td>
                   <td className="p-4 text-sm text-gray-900 dark:text-white">{u.email}</td>
                   <td className="p-4 text-sm text-gray-900 dark:text-white">
-                    {branches.find((b) => b.id === u.branchId)?.name}
+                    {u.branch?.name}
                   </td>
                   <td className="p-4 text-sm text-gray-900 dark:text-white">{u.role}</td>
                   <td className="p-4 text-sm text-gray-900 dark:text-white">

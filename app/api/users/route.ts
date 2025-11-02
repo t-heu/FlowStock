@@ -3,14 +3,27 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import bcrypt from "bcryptjs"; // para hashear senha
 
 // 🔹 GET — lista todos os usuários
+// 🔹 GET — lista todos os usuários com a filial vinculada
 export async function GET() {
   try {
-    const snapshot = await adminDb.collection("users").get();
-    const users = snapshot.docs.map(d => {
-      const data = d.data();
-      return { id: d.id, ...data, password: undefined }; // não retorna senha
+    // Buscar usuários
+    const usersSnap = await adminDb.collection("users").get();
+    const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data(), password: undefined }));
+
+    // Buscar filiais
+    const branchesSnap = await adminDb.collection("branches").get();
+    const branches = branchesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Vincular filial ao usuário
+    const usersWithBranch = users.map((user: any) => {
+      const branch: any = branches.find(b => b.id === user.branchId);
+      return {
+        ...user,
+        branch: branch ? { id: branch.id, name: branch.name, code: branch.code } : null
+      };
     });
-    return NextResponse.json(users);
+
+    return NextResponse.json(usersWithBranch);
   } catch (err) {
     console.error("Erro ao buscar usuários:", err);
     return NextResponse.json({ ok: false, error: "Erro ao buscar usuários" }, { status: 500 });

@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
-import { getProducts, saveProduct, deleteProduct, type Product } from "@/lib/storage"
+import { getProducts, saveProduct, deleteProduct, type Product } from "@/lib/product"
 import { Plus, Trash2, Package } from "lucide-react"
 
 export default function ProdutosPage() {
@@ -28,7 +28,6 @@ export default function ProdutosPage() {
     await saveProduct({
       ...formData,
       id: crypto.randomUUID(),
-      currentStock: 0,
       createdAt: new Date().toISOString(),
     });
     setFormData({ code: "", name: "", description: "", unit: "UN" });
@@ -141,7 +140,6 @@ export default function ProdutosPage() {
                 <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Nome</th>
                 <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Descrição</th>
                 <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Unidade</th>
-                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Estoque</th>
                 <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Ações</th>
               </tr>
             </thead>
@@ -165,13 +163,6 @@ export default function ProdutosPage() {
                     <td className="p-4 text-sm text-gray-900 dark:text-white">{product.name}</td>
                     <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{product.description}</td>
                     <td className="p-4 text-sm text-gray-900 dark:text-white">{product.unit}</td>
-                    <td className="p-4 text-sm">
-                      <span
-                        className={`font-semibold ${product.currentStock > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                      >
-                        {product.currentStock}
-                      </span>
-                    </td>
                     <td className="p-4">
                       <button
                         onClick={() => handleDelete(product.id)}

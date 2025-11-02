@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getProducts, getMovements, getBranches } from "@/lib/storage"
 import { Package, TrendingUp, TrendingDown } from "lucide-react"
+
+import { fetchResilient } from "@/lib/fetchResilient";
 
 export default function Home() {
   const [stats, setStats] = useState({
@@ -14,27 +15,18 @@ export default function Home() {
   })
 
   useEffect(() => {
-
-    async function load_data() {
-      const products = await getProducts()
-      const movements = await getMovements()
-      const branches = await getBranches()
-
-      const totalStock = products.reduce((sum, p) => sum + p.currentStock, 0)
-      const entries = movements.filter((m) => m.type === "entrada")
-      const exits = movements.filter((m) => m.type === "saida")
-
-      setStats({
-        totalProducts: products.length,
-        totalStock,
-        totalEntries: entries.length,
-        totalExits: exits.length,
-        totalBranches: branches.length,
-      })
+    async function load_stats() {
+      try {
+        const data = await fetchResilient("/api/stats", { retries: 3, retryDelay: 1000 });
+        setStats(data);
+      } catch (err: any) {
+        console.error("Erro ao carregar estatísticas:", err);
+        // Aqui você pode mostrar uma mensagem amigável no UI
+      }
     }
 
-    load_data()
-  }, [])
+    load_stats();
+  }, []);
 
   const cards = [
     {

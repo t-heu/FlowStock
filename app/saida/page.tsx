@@ -2,17 +2,23 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
-import { getProducts, getBranches, saveMovement, getMovements, type Product, type Branch } from "@/lib/storage"
 import { Package, AlertCircle, TrendingDown } from "lucide-react"
+
+import { getBranches, type Branch } from "@/lib/branches"
+import { saveMovement, getMovements } from "@/lib/movement"
+import { getProducts, type Product } from "@/lib/product"
+import { getBranchStock } from "@/lib/branchStock"
 
 export default function SaidaPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [branches, setBranches] = useState<Branch[]>([])
   const [recentExits, setRecentExits] = useState<any[]>([])
+  const [branchStock, setBranchStock] = useState<any[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [formData, setFormData] = useState({
     productId: "",
     branchId: "",
+    destinationBranchName: "",
     quantity: "",
     notes: "",
   })
@@ -21,29 +27,17 @@ export default function SaidaPage() {
     async function loadData() {
       setProducts(await getProducts())
       setBranches(await getBranches())
+      setBranchStock(await getBranchStock());
+
       loadRecentExits()
     }
 
     loadData()
   }, [])
 
-  const loadRecentExits = async () => {
-    const movements = await getMovements();
-
-    movements.filter((m) => m.type === "saida")
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 10)
-
-    const productsData = await getProducts()
-    const branchesData = await getBranches()
-
-    const exitsWithDetails = movements.map((m) => ({
-      ...m,
-      product: productsData.find((p) => p.id === m.productId),
-      branch: branchesData.find((b) => b.id === m.branchId),
-    }))
-
-    setRecentExits(exitsWithDetails)
+  async function loadRecentExits() {
+    const movements = await getMovements("saida");
+    setRecentExits(movements);
   }
 
   const handleProductChange = (productId: string) => {
@@ -61,31 +55,49 @@ export default function SaidaPage() {
       return
     }
 
-    if (!selectedProduct) {
-      alert("Selecione um produto")
+    const selectedProduct = products.find(p => p.id === formData.productId)
+    const branchOrigem = branches.find(b => b.id === formData.branchId)
+    const branchDestino = branches.find(b => b.name === formData.destinationBranchName)
+
+    if (!selectedProduct || !branchOrigem || !branchDestino) {
+      alert("Selecione produto e filiais válidos")
       return
     }
 
-    if (quantity > selectedProduct.currentStock) {
-      alert(`Estoque insuficiente! Disponível: ${selectedProduct.currentStock}`)
-      return
+    try {
+      await saveMovement({
+        productId: formData.productId,
+        branchId: formData.branchId,
+        destinationBranchName: branchDestino.name,
+        type: "saida",
+        quantity,
+        date: new Date().toISOString(),
+        notes: formData.notes,
+        productName: selectedProduct.name,
+        productCode: selectedProduct.code,
+        branchName: branchOrigem.name,
+      })
+
+      setFormData({ productId: "", branchId: "", destinationBranchName: "", quantity: "", notes: "" })
+      setSelectedProduct(null)
+      setProducts(await getProducts())
+      loadRecentExits()
+      alert("Saída registrada com sucesso!")
+    } catch (err: any) {
+      alert(err.message || "Erro ao registrar saída")
     }
-
-    saveMovement({
-      productId: formData.productId,
-      branchId: formData.branchId,
-      type: "saida",
-      quantity,
-      date: new Date().toISOString(),
-      notes: formData.notes,
-    })
-
-    setFormData({ productId: "", branchId: "", quantity: "", notes: "" })
-    setSelectedProduct(null)
-    setProducts(await getProducts())
-    loadRecentExits()
-    alert("Saída registrada com sucesso!")
   }
+
+  // Dentro do componente, baseado no produto e filial selecionados
+  const availableStock = selectedProduct && formData.branchId
+    ? branchStock
+        .filter(
+          (item) =>
+            item.productId === selectedProduct.id &&
+            item.branchId === formData.branchId
+        )
+        .reduce((sum, item) => sum + item.quantity, 0)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -101,6 +113,7 @@ export default function SaidaPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Grid com produto e filial origem */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Produto</label>
@@ -113,21 +126,21 @@ export default function SaidaPage() {
                 <option value="">Selecione um produto</option>
                 {products.map((product) => (
                   <option key={product.id} value={product.id}>
-                    {product.code} - {product.name} (Estoque: {product.currentStock})
+                    {product.code} - {product.name}
                   </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filial</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filial Origem</label>
               <select
                 value={formData.branchId}
                 onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
                 required
               >
-                <option value="">Selecione uma filial</option>
+                <option value="">Selecione a filial</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.code} - {branch.name}
@@ -137,20 +150,40 @@ export default function SaidaPage() {
             </div>
           </div>
 
-          {selectedProduct && (
+          {/* Grid com filial destino */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filial Destino</label>
+            <select
+              value={formData.destinationBranchName} // agora guarda o nome
+              onChange={(e) => setFormData({ ...formData, destinationBranchName: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+              required
+            >
+              <option value="">Selecione a filial destino</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.name}> {/* valor agora é o nome */}
+                  {branch.code} - {branch.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Estoque disponível */}
+          {selectedProduct && formData.branchId && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-black dark:text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">Estoque Disponível</p>
                   <p className="text-2xl font-bold text-black dark:text-blue-400 mt-1">
-                    {selectedProduct.currentStock} {selectedProduct.unit}
+                    {availableStock} {selectedProduct.unit}
                   </p>
                 </div>
               </div>
             </div>
           )}
 
+          {/* Quantidade */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quantidade</label>
             <input
@@ -159,12 +192,13 @@ export default function SaidaPage() {
               onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
               placeholder="Digite a quantidade"
               min="1"
-              max={selectedProduct?.currentStock || undefined}
+              max={0 || undefined}
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
               required
             />
           </div>
 
+          {/* Observações */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observações</label>
             <input
@@ -176,6 +210,7 @@ export default function SaidaPage() {
             />
           </div>
 
+          {/* Botão */}
           <button
             type="submit"
             disabled={!selectedProduct}
@@ -187,6 +222,7 @@ export default function SaidaPage() {
         </form>
       </div>
 
+      {/* Tabela de últimas saídas */}
       <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
         <div className="p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">Últimas Saídas</h3>
@@ -197,7 +233,8 @@ export default function SaidaPage() {
               <tr>
                 <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Data</th>
                 <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Produto</th>
-                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Filial</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Filial Origem</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Filial Destino</th>
                 <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Qtd</th>
                 <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Observações</th>
               </tr>
@@ -205,7 +242,7 @@ export default function SaidaPage() {
             <tbody>
               {recentExits.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8">
+                  <td colSpan={6} className="p-8">
                     <div className="flex flex-col items-center justify-center text-center gap-2 text-gray-500 dark:text-gray-400">
                       <Package className="w-6 h-6 opacity-70" />
                       <p>Nenhuma saída registrada</p>
@@ -222,9 +259,10 @@ export default function SaidaPage() {
                       {new Date(exit.date).toLocaleDateString("pt-BR")}
                     </td>
                     <td className="p-4 text-sm text-gray-900 dark:text-white">
-                      {exit.product?.code} - {exit.product?.name}
+                      {exit.productCode} - {exit.productName}
                     </td>
-                    <td className="p-4 text-sm text-gray-900 dark:text-white">{exit.branch?.name}</td>
+                    <td className="p-4 text-sm text-gray-900 dark:text-white">{exit.branchName}</td>
+                    <td className="p-4 text-sm text-gray-900 dark:text-white">{exit.destinationBranchName || "-"}</td>
                     <td className="p-4 text-sm">
                       <span className="font-semibold text-red-600 dark:text-red-400">-{exit.quantity}</span>
                     </td>

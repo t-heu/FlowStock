@@ -2,7 +2,9 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
-import { getProducts, getBranches, saveMovement, getMovements, type Product, type Branch } from "@/lib/storage"
+import { saveMovement, getMovements } from "@/lib/movement"
+import { getProducts, type Product } from "@/lib/product"
+import { getBranches, type Branch } from "@/lib/branches"
 import { Package, TrendingUp } from "lucide-react"
 
 export default function EntradaPage() {
@@ -14,6 +16,7 @@ export default function EntradaPage() {
     branchId: "",
     quantity: "",
     notes: "",
+    invoiceNumber: "", // novo campo
   })
 
   useEffect(() => {
@@ -26,23 +29,9 @@ export default function EntradaPage() {
     loadData()
   }, [])
 
-  const loadRecentEntries = async () => {
-    const movements = await getMovements();
-
-    movements.filter((m) => m.type === "entrada")
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 10)
-
-    const productsData = await getProducts()
-    const branchesData = await getBranches()
-
-    const entriesWithDetails = movements.map((m) => ({
-      ...m,
-      product: productsData.find((p) => p.id === m.productId),
-      branch: branchesData.find((b) => b.id === m.branchId),
-    }))
-
-    setRecentEntries(entriesWithDetails)
+  async function loadRecentEntries() {
+    const movements = await getMovements("entrada");
+    setRecentEntries(movements);
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,16 +43,23 @@ export default function EntradaPage() {
       return
     }
 
-    saveMovement({
+    const selectedProduct = products.find(p => p.id === formData.productId)
+    const selectedBranch = branches.find(b => b.id === formData.branchId)
+
+    await saveMovement({
       productId: formData.productId,
       branchId: formData.branchId,
       type: "entrada",
       quantity,
       date: new Date().toISOString(),
       notes: formData.notes,
+      invoiceNumber: formData.invoiceNumber,
+      productName: selectedProduct?.name || "",
+      productCode: selectedProduct?.code || "",
+      branchName: selectedBranch?.name || "",
     })
 
-    setFormData({ productId: "", branchId: "", quantity: "", notes: "" })
+    setFormData({ productId: "", branchId: "", quantity: "", notes: "", invoiceNumber: "" })
     setProducts(await getProducts())
     loadRecentEntries()
     alert("Entrada registrada com sucesso!")
@@ -132,6 +128,7 @@ export default function EntradaPage() {
             />
           </div>
 
+          {/* Campo de Observações */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observações</label>
             <input
@@ -139,6 +136,18 @@ export default function EntradaPage() {
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               placeholder="Notas sobre a entrada (opcional)"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+            />
+          </div>
+
+          {/* Novo campo Número da Nota Fiscal */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Número da Nota Fiscal</label>
+            <input
+              type="text"
+              value={formData.invoiceNumber}
+              onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
+              placeholder="Digite o número da nota fiscal"
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
             />
           </div>
@@ -166,15 +175,16 @@ export default function EntradaPage() {
                 <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Filial</th>
                 <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Qtd</th>
                 <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Observações</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Nota Fiscal</th>
               </tr>
             </thead>
             <tbody>
               {recentEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8">
+                  <td colSpan={6} className="p-8">
                     <div className="flex flex-col items-center justify-center text-center gap-2 text-gray-500 dark:text-gray-400">
                       <Package className="w-6 h-6 opacity-70" />
-                      <p>Nenhuma saída registrada</p>
+                      <p>Nenhuma entrada registrada</p>
                     </div>
                   </td>
                 </tr>
@@ -195,6 +205,7 @@ export default function EntradaPage() {
                       <span className="font-semibold text-green-600 dark:text-green-400">+{entry.quantity}</span>
                     </td>
                     <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{entry.notes || "-"}</td>
+                    <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{entry.invoiceNumber || "-"}</td>
                   </tr>
                 ))
               )}
