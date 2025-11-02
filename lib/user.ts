@@ -4,6 +4,7 @@ export interface User {
   id: string
   email: string
   name: string
+  username: string
   role: "admin" | "user"
   password?: string
   branchId: string

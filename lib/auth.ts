@@ -2,27 +2,29 @@ export interface User {
   id: string
   username: string
   name: string
+  role: string
 }
 
-// Usuário padrão para demonstração
-const DEFAULT_USER = {
-  username: "admin",
-  password: "admin123",
-  name: "Administrador",
-}
+export const login = async (username: string, password: string) => {
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
 
-export const login = (username: string, password: string): User | null => {
-  if (username === DEFAULT_USER.username && password === DEFAULT_USER.password) {
-    const user: User = {
-      id: "1",
-      username: DEFAULT_USER.username,
-      name: DEFAULT_USER.name,
+    const data = await res.json();
+    if (data.ok && data.user) {
+      localStorage.setItem("currentUser", JSON.stringify(data.user));
+      return data.user;
     }
-    localStorage.setItem("currentUser", JSON.stringify(user))
-    return user
+
+    return null;
+  } catch (err) {
+    console.error("Erro no login frontend:", err);
+    return null;
   }
-  return null
-}
+};
 
 export const logout = (): void => {
   localStorage.removeItem("currentUser")

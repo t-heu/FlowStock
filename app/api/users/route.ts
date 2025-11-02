@@ -33,7 +33,7 @@ export async function GET() {
 // 🔹 POST — cria novo usuário
 export async function POST(request: Request) {
   try {
-    const { name, email, role, password, branchId } = await request.json();
+    const { name, email, role, username, password, branchId } = await request.json();
 
     // hash da senha
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
       name,
       email,
       role,
+      username,
       branchId,
       password: hashedPassword,
       createdAt: new Date().toISOString()

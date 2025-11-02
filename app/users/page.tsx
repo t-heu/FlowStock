@@ -14,17 +14,18 @@ interface User {
   id: string
   name: string
   email: string
+  username: string
   branchId: string
   branch?: {
     name: string
   }
-  role: "admin" | "user"
+  role: "admin" | "user" | "manager"
 }
 
 export default function UsersPage() {
   const [branches, setBranches] = useState<Branch[]>([])
   const [users, setUsers] = useState<User[]>([])
-  const [formData, setFormData] = useState<any>({ name: "", email: "", branchId: "", role: "user", password: "" })
+  const [formData, setFormData] = useState<any>({ name: "", email: "", username: "", branchId: "", role: "user", password: "" })
 
   // 🔹 Carrega filiais e usuários
   useEffect(() => {
@@ -51,10 +52,10 @@ export default function UsersPage() {
     }
 
     try {
-      const newUser = await saveUser(formData);
+      await saveUser(formData);
 
       // Reseta formulário
-      setFormData({ name: "", email: "", branchId: "", role: "user", password: "" });
+      setFormData({ name: "", username: "", email: "", branchId: "", role: "user", password: "" });
 
       alert("Usuário criado com sucesso!");
     } catch (err: any) {
@@ -97,6 +98,15 @@ export default function UsersPage() {
           />
 
           <input
+            type="username"
+            placeholder="Username"
+            value={formData.username}
+            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:text-white"
+            required
+          />
+
+          <input
             type="email"
             placeholder="E-mail"
             value={formData.email}
@@ -130,11 +140,12 @@ export default function UsersPage() {
 
           <select
             value={formData.role}
-            onChange={(e) => setFormData({ ...formData, role: e.target.value as "admin" | "user" })}
+            onChange={(e) => setFormData({ ...formData, role: e.target.value as "admin" | "user" | "manager" })}
             className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:text-white"
           >
             <option value="user">Usuário</option>
             <option value="admin">Administrador</option>
+            <option value="manager">Manager</option> 
           </select>
 
           <button
@@ -156,6 +167,7 @@ export default function UsersPage() {
           <thead className="bg-gray-50 dark:bg-slate-700 border-b border-gray-200 dark:border-slate-600">
             <tr>
               <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Nome</th>
+              <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Username</th>
               <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">E-mail</th>
               <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Filial</th>
               <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Role</th>
@@ -173,6 +185,7 @@ export default function UsersPage() {
               users.map((u) => (
                 <tr key={u.id} className="border-b border-gray-200 dark:border-slate-700">
                   <td className="p-4 text-sm text-gray-900 dark:text-white">{u.name}</td>
+                  <td className="p-4 text-sm text-gray-900 dark:text-white">{u.username}</td>
                   <td className="p-4 text-sm text-gray-900 dark:text-white">{u.email}</td>
                   <td className="p-4 text-sm text-gray-900 dark:text-white">
                     {u.branch?.name}

@@ -1,10 +1,9 @@
-// app/layout.tsx
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/components/auth/auth-provider"
-import { Sidebar } from "@/components/layout/sidebar"
+import { SidebarWrapper } from "@/components/SidebarWrapper"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -32,10 +31,10 @@ export default function RootLayout({
   )
 }
 
-function LayoutContent({ children }: { children: React.ReactNode }) {
+function LayoutContent({ children }: { children: React.ReactNode }) {  
   return (
     <div className="flex flex-col md:flex-row min-h-screen">
-      <Sidebar /> {/* Sidebar responsivo com botão hambúrguer */}
+      <SidebarWrapper />
       <main className="flex-1 p-8">{children}</main>
     </div>
   )

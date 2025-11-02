@@ -3,7 +3,6 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { logout, getCurrentUser } from "@/lib/auth"
 import {
   LayoutDashboard,
   Package,
@@ -16,19 +15,21 @@ import {
 } from "lucide-react"
 import { useState, useEffect } from "react"
 
+import { logout, getCurrentUser } from "@/lib/auth"
+import { can } from "@/lib/permissions"
+
 const navItems = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
   { title: "Produtos", href: "/produtos", icon: Package },
   { title: "Entrada de Estoque", href: "/entrada", icon: TrendingUp },
   { title: "Saída de Estoque", href: "/saida", icon: TrendingDown },
   { title: "Relatórios", href: "/relatorios", icon: BarChart3 },
-  { title: "Filiais", href: "/branches", icon: MapPin },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const [user, setUser] = useState<{ name: string; username: string } | null>(null)
+  const [user, setUser] = useState<{ name: string; username: string; role: string } | null>(null)
   const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
@@ -85,7 +86,6 @@ export function Sidebar() {
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
-
             return (
               <Link
                 key={item.href}
@@ -103,12 +103,26 @@ export function Sidebar() {
             )
           })}
 
-          {/* Usuários apenas para admin */}
-          {user?.username === "admin" && (
+          {user && can(user.role, "manageBranches") && (
+            <Link
+              href="/branches"
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
+                pathname === "/branches"
+                  ? "bg-black text-white"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700"
+              }`}
+              onClick={() => setIsOpen(false)}
+            >
+              <MapPin className="w-5 h-5" />
+              Filiais
+            </Link>
+          )}
+
+          {user && can(user.role, "viewUsers") && (
             <Link
               href="/users"
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
-                pathname === "/usuarios"
+                pathname === "/users"
                   ? "bg-black text-white"
                   : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700"
               }`}
@@ -128,7 +142,7 @@ export function Sidebar() {
                 {user.name.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{user.name}</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{user.name} ({user.role})</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.username}</p>
               </div>
             </div>
