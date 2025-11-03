@@ -1,23 +1,24 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getBranches, type Branch } from "@/lib/branches"
-import { type Product } from "@/lib/product"
-import { fetchReport } from "@/lib/reports"
 import { Download, Filter } from "lucide-react"
 
-interface ReportData {
-  branch: Branch
-  products: {
-    product: Product
-    totalExits: number
-  }[]
-  totalExits: number
+import { getBranches, type Branch } from "@/lib/branches"
+import { fetchReport } from "@/lib/reports"
+
+interface DetailedExit {
+  date: string
+  branchName: string
+  destinationBranchName: string
+  productCode: string
+  productName: string
+  quantity: number
+  notes: string
 }
 
 export default function RelatoriosPage() {
   const [branches, setBranches] = useState<Branch[]>([])
-  const [reportData, setReportData] = useState<ReportData[]>([])
+  const [reportData, setReportData] = useState<DetailedExit[]>([])
   const [selectedBranch, setSelectedBranch] = useState<string>("all")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
@@ -27,43 +28,38 @@ export default function RelatoriosPage() {
       setBranches(await getBranches())
       generateReport()
     }
-    
     loadData()
   }, [])
 
   const generateReport = async () => {
-    const report = await fetchReport(selectedBranch, startDate, endDate);
-    setReportData(report);
+    const report = await fetchReport(selectedBranch, startDate, endDate)
+    setReportData(report)
   }
 
-  const handleFilter = () => {
-    generateReport()
-  }
+  const handleFilter = () => generateReport()
 
   const handleExport = () => {
-    let csv = "Filial;Código Produto;Nome Produto;Quantidade Saída\n"
-
-    reportData.forEach((branchData) => {
-      branchData.products.forEach((item) => {
-        csv += `${branchData.branch.name};${item.product.code};${item.product.name};${item.totalExits}\n`
-      })
+    let csv = "Data;Filial Origem;Filial Destino;Código Produto;Nome Produto;Quantidade;Observações\n"
+    reportData.forEach((item) => {
+      csv += `${item.date};${item.branchName};${item.destinationBranchName};${item.productCode};${item.productName};${item.quantity};${item.notes}\n`
     })
-
     const blob = new Blob([csv], { type: "text/csv" })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `relatorio-saidas-${new Date().toISOString().split("T")[0]}.csv`
+    a.download = `relatorio-saidas-detalhado-${new Date().toISOString().split("T")[0]}.csv`
     a.click()
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Relatórios</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">Visualize a quantidade de saídas por filial</p>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Relatórios Detalhados</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">Visualize cada saída registrada por filial</p>
       </div>
 
+      {/* Filtros */}
       <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-6">
         <div className="flex items-center gap-3 mb-6">
           <Filter className="w-6 h-6 text-black dark:text-blue-400" />
@@ -71,6 +67,7 @@ export default function RelatoriosPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Filial */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filial</label>
             <select
@@ -79,14 +76,13 @@ export default function RelatoriosPage() {
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
             >
               <option value="all">Todas as Filiais</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </select>
           </div>
 
+          {/* Data inicial */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Data Inicial</label>
             <input
@@ -97,6 +93,7 @@ export default function RelatoriosPage() {
             />
           </div>
 
+          {/* Data final */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Data Final</label>
             <input
@@ -107,6 +104,7 @@ export default function RelatoriosPage() {
             />
           </div>
 
+          {/* Botão */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">&nbsp;</label>
             <button
@@ -120,6 +118,7 @@ export default function RelatoriosPage() {
         </div>
       </div>
 
+      {/* Export CSV */}
       {reportData.length > 0 && (
         <div className="flex justify-end">
           <button
@@ -132,65 +131,48 @@ export default function RelatoriosPage() {
         </div>
       )}
 
-      {reportData.length === 0 ? (
-        <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-12 text-center">
-          <p className="text-lg text-gray-500 dark:text-gray-400">
-            Nenhuma saída encontrada para os filtros selecionados
-          </p>
+      {/* Tabela detalhada */}
+      <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Saídas Detalhadas</h3>
         </div>
-      ) : (
-        <div className="space-y-6">
-          {reportData.map((branchData) => (
-            <div
-              key={branchData.branch.id}
-              className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden"
-            >
-              <div className="bg-blue-50 dark:bg-blue-900/20 border-b border-gray-200 dark:border-slate-700 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">{branchData.branch.name}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{branchData.branch.code}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Total de Saídas</p>
-                    <p className="text-2xl font-bold text-black dark:text-blue-400">{branchData.totalExits}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-slate-700 border-b border-gray-200 dark:border-slate-600">
-                    <tr>
-                      <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Código</th>
-                      <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Produto</th>
-                      <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Unidade</th>
-                      <th className="text-right p-4 text-sm font-semibold text-gray-900 dark:text-white">Qtd Saída</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {branchData.products.map((item) => (
-                      <tr
-                        key={item.product.id}
-                        className="border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700/50"
-                      >
-                        <td className="p-4 text-sm font-medium text-gray-900 dark:text-white">{item.product.code}</td>
-                        <td className="p-4 text-sm text-gray-900 dark:text-white">{item.product.name}</td>
-                        <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{item.product.unit}</td>
-                        <td className="p-4 text-right">
-                          <span className="text-sm font-semibold text-red-600 dark:text-red-400">
-                            {item.totalExits}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-slate-700 border-b border-gray-200 dark:border-slate-600">
+              <tr>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Data</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Filial Origem</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Filial Destino</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Código Produto</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Produto</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Qtd</th>
+                <th className="text-left p-4 text-sm font-semibold text-gray-900 dark:text-white">Observações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reportData.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-gray-500 dark:text-gray-400">
+                    Nenhuma saída registrada
+                  </td>
+                </tr>
+              ) : (
+                reportData.map((item, idx) => (
+                  <tr key={idx} className="border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700/50">
+                    <td className="p-4 text-sm text-gray-900 dark:text-white">{new Date(item.date).toLocaleDateString("pt-BR")}</td>
+                    <td className="p-4 text-sm text-gray-900 dark:text-white">{item.branchName}</td>
+                    <td className="p-4 text-sm text-gray-900 dark:text-white">{item.destinationBranchName}</td>
+                    <td className="p-4 text-sm text-gray-900 dark:text-white">{item.productCode}</td>
+                    <td className="p-4 text-sm text-gray-900 dark:text-white">{item.productName}</td>
+                    <td className="p-4 text-sm text-red-600 dark:text-red-400 font-semibold">-{item.quantity}</td>
+                    <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{item.notes || "-"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
     </div>
   )
 }

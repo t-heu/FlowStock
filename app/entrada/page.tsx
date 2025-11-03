@@ -66,7 +66,7 @@ export default function EntradaPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto">
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Entrada de Estoque</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2">Registre a entrada de produtos no estoque</p>

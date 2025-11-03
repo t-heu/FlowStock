@@ -12,6 +12,7 @@ import {
   TrendingUp,
   TrendingDown,
   Users,
+  Warehouse
 } from "lucide-react"
 import { useState, useEffect } from "react"
 
@@ -24,6 +25,7 @@ const navItems = [
   { title: "Entrada de Estoque", href: "/entrada", icon: TrendingUp },
   { title: "Saída de Estoque", href: "/saida", icon: TrendingDown },
   { title: "Relatórios", href: "/relatorios", icon: BarChart3 },
+  { title: "Estoque das Filias", href: "/filiais", icon: Warehouse },
 ]
 
 export function Sidebar() {
